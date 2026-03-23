@@ -32,9 +32,9 @@ services:
     networks:
       - kfc_network
 
-  backup_cron:
+  backups_cron:
     image: ubuntu:24.04
-    container_name: backup_cron
+    container_name: backups_cron
     depends_on:
       - postgres
     volumes:
