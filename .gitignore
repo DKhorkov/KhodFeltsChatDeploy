@@ -37,6 +37,7 @@ grafana/
 prometheus.yml
 postgres_data
 postgres_backups
+migrations
 
 # Environments
 .venv

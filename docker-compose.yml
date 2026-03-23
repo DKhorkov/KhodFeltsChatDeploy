@@ -8,7 +8,7 @@ services:
       - "${HTTP_OUTER_PORT}:${HTTP_INNER_PORT}"
     depends_on:
       - postgres
-      - cache
+      - redis
       - jaeger
     volumes:
       - ./logs/:/app/logs/
@@ -89,9 +89,9 @@ services:
     depends_on:
       - prometheus
 
-  cache:
-    container_name: cache
-    hostname: cache
+  redis:
+    container_name: redis
+    hostname: redis
     image: redis:latest
     env_file:
       - .env
