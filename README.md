@@ -6,13 +6,13 @@ Before usage need to create network for correct dependencies work:
 task -d scripts network -v
 ```
 
-To run bot and its dependencies in docker, use next command (twice due to migrations work logics):
+To run chat and its dependencies in docker, use next command (twice due to migrations work logics):
 
 ```bash
 task -d scripts up -v
 ```
 
-To stop bot and its dependencies, use next command:
+To stop chat and its dependencies, use next command:
 
 ```bash
 task -d scripts down -v
@@ -24,7 +24,7 @@ To clean up all created dirs and docker files, use next command:
 task -d scripts clean_up -v
 ```
 
-To reboot bot and its dependencies, use next command:
+To reboot chat and its dependencies, use next command:
 
 ```bash
 task -d scripts reboot -v
