@@ -1,0 +1,238 @@
+version: '3'
+
+tasks:
+  up:
+    desc: "Runs chat and its dependencies."
+    dir: ../
+    cmds:
+      # Prepare infrastructure:
+      - task: create_logs_folder
+      - task: create_migrations_folder
+      - task: create_grafana_folder
+      - task: prepare_prometheus
+
+      # Build app:
+      - task: docker_build
+      - task: docker_run
+
+      # Prepare migrations:
+      - task: copy_grafana
+      - task: copy_migrations
+      - task: migrate
+
+  create_logs_folder:
+    desc: "Create logs folder for docker volume purposes."
+    internal: true
+    dir: ../
+    cmds:
+      - mkdir -p logs
+
+  create_migrations_folder:
+    desc: "Create migrations folder for docker volume purposes."
+    internal: true
+    dir: ../
+    cmds:
+      - mkdir -p migrations
+
+  create_grafana_folder:
+    desc: "Create grafana folder for docker volume purposes."
+    internal: true
+    dir: ../
+    cmds:
+      - mkdir -p grafana
+      - sudo chmod -R 777 grafana
+
+  prepare_prometheus:
+    desc: "Prepares Prometheus config."
+    internal: true
+    dir: ../
+    cmds:
+      - export $(cat .env | xargs) && envsubst < prometheus.template.yml > prometheus.yml
+
+  docker_build:
+    desc: "Build docker container."
+    dir: ../
+    cmd: sudo docker-compose build
+
+  docker_run:
+    desc: "Launch docker container."
+    dir: ../
+    cmd: sudo docker-compose up -d
+
+  copy_migrations:
+    desc: "
+    Copy chat migrations from docker volume.
+    https://stackoverflow.com/questions/32566624/docker-cp-all-files-from-a-folder-to-existing-container-folder 
+    https://docs.docker.com/reference/cli/docker/container/cp/
+    "
+    internal: true
+    dir: ../
+    cmd: sudo docker cp kfc:/app/migrations/. ./migrations
+
+  copy_grafana:
+    desc: "
+    Copy chat grafana from docker volume.
+    https://stackoverflow.com/questions/32566624/docker-cp-all-files-from-a-folder-to-existing-container-folder 
+    https://docs.docker.com/reference/cli/docker/container/cp/
+    "
+    internal: true
+    dir: ../
+    cmd: sudo docker cp kfc:/app/grafana/. ./grafana
+
+  migrate:
+    desc: "Apply all available migrations for SSO service."
+    dir: ../
+    dotenv:
+      - .env
+    vars:
+      DIR: ./migrations
+      DRIVER: $POSTGRES_DRIVER
+      DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$DB_OUTER_HOST:$DB_OUTER_PORT/$POSTGRES_DB"
+    cmds:
+      - export PATH=$PATH:$HOME/go/bin
+      - source ~/.bashrc
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - goose -dir {{.DIR}} {{.DRIVER}} {{.DATABASE_URL}} up
+
+  migrate_to:
+    desc: "Migrate up to a specific version."
+    requires:
+      vars: [ VERSION ]
+    dotenv:
+      - .env
+    vars:
+      DIR: ./migrations
+      DRIVER: $POSTGRES_DRIVER
+      DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$DB_OUTER_HOST:$DB_OUTER_PORT/$POSTGRES_DB"
+    dir: ../
+    cmds:
+      - export PATH=$PATH:$HOME/go/bin
+      - source ~/.bashrc
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - goose -dir {{.DIR}} {{.DRIVER}} {{.DATABASE_URL}} up-to {{.VERSION}}
+
+  downgrade_to:
+    desc: "Rollback migrations to a specific version."
+    requires:
+      vars: [ VERSION ]
+    dotenv:
+      - .env
+    vars:
+      DIR: ./migrations
+      DRIVER: $POSTGRES_DRIVER
+      DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$DB_OUTER_HOST:$DB_OUTER_PORT/$POSTGRES_DB"
+    dir: ../
+    cmds:
+      - export PATH=$PATH:$HOME/go/bin
+      - source ~/.bashrc
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - goose -dir {{.DIR}} {{.DRIVER}} {{.DATABASE_URL}} down-to {{.VERSION}}
+
+  downgrade_to_base:
+    desc: "Rollback all migrations (careful!)."
+    aliases:
+      - drop_tables
+    dotenv:
+      - .env
+    vars:
+      DIR: ./migrations
+      DRIVER: $POSTGRES_DRIVER
+      DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$DB_OUTER_HOST:$DB_OUTER_PORT/$POSTGRES_DB"
+    dir: ../
+    cmds:
+      - export PATH=$PATH:$HOME/go/bin
+      - source ~/.bashrc
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - goose -dir {{.DIR}} {{.DRIVER}} {{.DATABASE_URL}} down-to 0
+
+  migrations_status:
+    desc: "Print status of all migrations."
+    aliases:
+      - status
+    dotenv:
+      - .env
+    vars:
+      DIR: ./migrations
+      DRIVER: $POSTGRES_DRIVER
+      DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$DB_OUTER_HOST:$DB_OUTER_PORT/$POSTGRES_DB"
+    dir: ../
+    cmds:
+      - export PATH=$PATH:$HOME/go/bin
+      - source ~/.bashrc
+      - go install github.com/pressly/goose/v3/cmd/goose@latest
+      - goose -dir {{.DIR}} {{.DRIVER}} {{.DATABASE_URL}} status
+
+  down:
+    desc: "Shutdown chat and its dependencies."
+    dir: ../
+    cmds:
+      - task: docker_stop
+
+  docker_stop:
+    desc: "Stop all docker containers."
+    dir: ../
+    cmd: sudo docker stop $(sudo docker ps -a -q)
+
+  clean_up:
+    desc: "Clean up all folders, docker volumes, images and containers."
+    aliases:
+      - clean
+    dir: ../
+    cmds:
+      - sudo rm -rf logs/
+      - sudo rm -rf migrations/
+      - sudo rm -rf postgres_data/
+      - sudo rm -rf postgres_backups/
+      - task: docker_clean
+
+  docker_clean:
+    desc: "Clean docker containers, images and volumes."
+    dir: ../
+    cmd: sudo docker system prune -a --volumes
+
+  docker_network:
+    desc: "Create docker network for project."
+    dir: ../
+    aliases:
+      - network
+    cmd: sudo docker network create kfc_network
+
+  connect_to_database_container:
+    desc: "Connects to database container."
+    aliases:
+      - connect_to_database
+    dir: ../
+    cmds:
+      - sudo docker exec -it database sh
+
+  create_database_backup:
+    desc: "Creates database backup."
+    aliases:
+      - backup
+    dir: ../
+    cmds:
+      - sudo docker exec database /scripts/backup.sh
+
+  restore_database_from_backup:
+    desc: "Restores database from backup."
+    aliases:
+      - restore
+    dir: ../
+    cmds:
+      - |
+        if [ -z "{{.BACKUP_FILENAME}}" ]; then
+          echo "Восстановление из последней резервной копии..."
+          sudo docker exec database /scripts/restore.sh
+        else
+          echo "Восстановление из резервной копии: {{.BACKUP_FILENAME}}"
+          sudo docker exec database /scripts/restore.sh {{.BACKUP_FILENAME}}
+        fi
+
+  reboot:
+    desc: "Reboots chat and its dependencies."
+    dir: ../
+    cmds:
+      - task: down
+      - task: docker_clean
+      - task: network
+      - task: up
