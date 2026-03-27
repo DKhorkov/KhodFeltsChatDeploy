@@ -61,3 +61,27 @@ To restore database from specific backup, use next command:
 ```shell
 task -d scripts restore BACKUP_FILENAME={{backup_filename}}
 ```
+
+## Grafana
+
+При прблемах с логином в графану нужно проверить логи контейнера через
+команду ниже:
+
+```shell
+docker logs <id_контейнера>
+```
+
+Вероятнее всего, дело в доступе к папке графаны.
+В таком случае надо выдать досту через команду ниже:
+
+
+```shell
+sudo chown -R 472:472 <путь_к_графане>
+```
+
+А заем перезапусить контейнер через команду ниже:
+
+
+```shell
+docker restart <id_контейнера>
+```
