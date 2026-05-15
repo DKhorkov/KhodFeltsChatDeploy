@@ -168,10 +168,15 @@ tasks:
     cmds:
       - task: docker_stop
 
-  docker_stop:
+  docker_stop_all:
     desc: "Stop all docker containers."
     dir: ../
     cmd: sudo docker stop $(sudo docker ps -a -q)
+
+  docker_stop:
+    desc: "Stop all project docker containers."
+    dir: ../
+    cmd: sudo docker-compose down
 
   clean_up:
     desc: "Clean up all folders, docker volumes, images and containers."
