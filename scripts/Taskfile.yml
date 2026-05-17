@@ -234,6 +234,23 @@ tasks:
           sudo docker exec database /scripts/restore.sh {{.BACKUP_FILENAME}}
         fi
 
+  init_ssl:
+    desc: "Получение SSL-сертификата Let's Encrypt для nginx (запускать один раз)."
+    aliases:
+      - ssl
+    requires:
+      vars: [ SSL_EMAIL ]
+    dir: ../
+    cmds:
+      - bash init-ssl.sh {{.SSL_EMAIL}}
+
+  renew_ssl:
+    desc: "Ручное обновление SSL-сертификата."
+    dir: ../
+    cmds:
+      - sudo docker compose run --rm certbot renew
+      - sudo docker compose restart nginx
+
   reboot:
     desc: "Reboots chat and its dependencies."
     dir: ../
